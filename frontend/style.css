@@ -172,3 +172,64 @@ body {
 .cp {
   cursor: pointer;
 }
+
+@media print {
+    /* 1. Reset total de la página y ocultar todo el ruido */
+    @page {
+        margin: 0;
+        size: auto;
+    }
+
+    /* Ocultamos absolutamente todo en el sitio */
+    html, body, #app, .modal-backdrop {
+        visibility: hidden !important;
+        background: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* 2. Forzar que el modal sea el único elemento que exista en el papel */
+    .modal {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+        visibility: visible !important;
+        overflow: visible !important;
+    }
+
+    /* 3. Estilo del ticket (El cuadro blanco) */
+    .modal-dialog {
+        visibility: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: 80mm !important; /* Ancho de ticket profesional */
+        transform: none !important;
+    }
+
+    .modal-content {
+        visibility: visible !important;
+        border: none !important;
+        box-shadow: none !important;
+        width: 80mm !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        background: white !important;
+    }
+
+    /* 4. Asegurar que el contenido interno sea visible */
+    .modal-content * {
+        visibility: visible !important;
+    }
+
+    /* 5. Esconder elementos que NO deben ir en el papel */
+    .modal-header .btn-close, 
+    .modal-footer, 
+    #btnImprimirBoleta, 
+    .btn-secondary {
+        display: none !important;
+    }
+}
