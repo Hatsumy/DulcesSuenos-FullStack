@@ -1,0 +1,74 @@
+:root {
+  --primary-fucsia: #d90166;
+  --soft-pink: #f7a1cb;
+  --pale-pink: #ffdfef;
+  --accent-vibrant: #f241a3;
+  --dark: #2d3748;
+}
+
+body { font-family: 'Quicksand', sans-serif; background-color: #fcfcfc; color: var(--dark); }
+.fw-800 { font-weight: 800; }
+.app-logo { height: 60px; margin-bottom: 5px; }
+
+/* Botón Excel */
+.btn-excel { background-color: #1d6f42; color: white; border: none; font-weight: 600; }
+.btn-excel:hover { background-color: #145532; color: white; }
+
+.premium-table thead th { border: none; background: #f8f9fa; color: #a0aec0; font-size: 0.7rem; text-transform: uppercase; padding: 12px; }
+.premium-table tbody tr { border-bottom: 1px solid #f7f7f7; }
+.premium-cat-badge { background: var(--pale-pink); color: var(--primary-fucsia); font-size: 0.65rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+.stock-badge { font-weight: 700; padding: 4px 10px; border-radius: 10px; }
+.stock-low { background: #fff5f5; color: #e53e3e; }
+.stock-high { background: #f0fff4; color: #38a169; }
+.btn-main { background: var(--primary-fucsia); color: white; border: none; font-weight: 700; border-radius: 15px; transition: 0.3s; }
+.btn-action-round { width: 32px; height: 32px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; }
+.btn-add { background: var(--pale-pink); color: var(--primary-fucsia); }
+.btn-edit { background: #ebf8ff; color: #3182ce; }
+.btn-delete { background: #fff5f5; color: #e53e3e; }
+.cp { cursor: pointer; }
+
+/* ========================================================
+   ESTILOS PERSONALIZADOS PARA TABS (BOTONES DE NAVEGACIÓN)
+   ======================================================== */
+
+/* 1. Color de los botones cuando NO están seleccionados */
+.premium-tabs .nav-link {
+    color: #d10069 !important; /* Tu fucsia principal */
+    font-weight: 600;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+/* 2. Color del botón cuando está ACTIVO (seleccionado) */
+.premium-tabs .nav-link.active {
+    background-color: #d10069 !important; /* Fondo fucsia */
+    color: white !important; /* Texto blanco */
+    box-shadow: 0 4px 12px rgba(209, 0, 105, 0.3); /* Sombra elegante */
+}
+
+/* 3. Efecto cuando pasas el mouse por encima (Hover) */
+.premium-tabs .nav-link:hover:not(.active) {
+    background-color: #fce4ec; /* Un rosa muy pálido */
+    color: #d10069 !important;
+}
+
+/* 4. Estilo de la "caja" de las pestañas */
+.premium-tabs {
+    background-color: #f8f9fa;
+    padding: 5px;
+    border-radius: 15px;
+    border: none;
+}
+
+.swal2-html-container ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.swal2-html-container li {
+    background: #fff5f8;
+    margin-bottom: 5px;
+    padding: 8px;
+    border-radius: 8px;
+    border-left: 4px solid #d10069;
+}
