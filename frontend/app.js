@@ -5,6 +5,7 @@ const API_URL = "http://localhost:8080/api";
 
 let productosDisponibles = [];
 let carrito = [];
+let productosVendidosRecientes = [];
 let chartCat;
 let chartTen;
 const META_VENTAS = 1000.00;
@@ -198,6 +199,7 @@ async function procesarVenta() {
     };
     
     try {
+        const vendidoIds = carrito.map(c => c.id);
         const res = await fetch(`${API_URL}/ventas`, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
@@ -207,6 +209,7 @@ async function procesarVenta() {
         const data = await res.json();
 
         if (res.ok) {
+            productosVendidosRecientes = vendidoIds;
             // PASO A: Abrimos la boleta primero
             abrirBoleta(carrito, totalVenta, data.id); 
             
@@ -244,6 +247,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 toast: true,
                 position: 'top-end'
             });
+
+            if (productosVendidosRecientes.length > 0) {
+                const stocksBajos = productosDisponibles
+                    .filter(p => productosVendidosRecientes.includes(p.id) && p.stock <= 5);
+
+                if (stocksBajos.length > 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Stock bajo',
+                        html: `Stock bajo en ${stocksBajos.map(p => `<strong>${p.nombre}</strong> (${p.stock})`).join(', ')}`,
+                        confirmButtonText: 'Entendido'
+                    });
+                }
+                productosVendidosRecientes = [];
+            }
         });
     }
 });
