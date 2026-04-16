@@ -11,6 +11,18 @@ let chartTen;
 let procesandoVenta = false;
 const META_VENTAS = 1000.00;
 
+// Función unificada de filtrado de productos
+function filtrarProductos(termino) {
+    if (!termino) return productosDisponibles;
+    const t = termino.toLowerCase();
+    return productosDisponibles.filter(p => 
+        p.nombre.toLowerCase().includes(t) || 
+        p.categoria.toLowerCase().includes(t) ||
+        (p.codigoBarras && p.codigoBarras.includes(t)) ||
+        p.id.toString() === t
+    );
+}
+
 // 1. INICIALIZACIÓN
 async function inicializar() {
     initCharts();
@@ -21,16 +33,7 @@ async function inicializar() {
     if (buscadorCaja) {
         buscadorCaja.addEventListener("input", (e) => {
             const termino = e.target.value.toLowerCase();
-            if (termino === "") {
-                renderTable("tablaProductos", true); 
-                return;
-            }
-            const filtrados = productosDisponibles.filter(p => 
-                p.nombre.toLowerCase().includes(termino) || 
-                p.categoria.toLowerCase().includes(termino) ||
-                (p.codigoBarras && p.codigoBarras.includes(termino)) ||
-                p.id.toString() === termino
-            );
+            const filtrados = filtrarProductos(termino);
             renderTable("tablaProductos", true, filtrados);
         });
 
@@ -58,15 +61,11 @@ async function inicializar() {
     if (buscadorGeneral) {
         buscadorGeneral.addEventListener("input", (e) => {
             const termino = e.target.value.toLowerCase();
-            const filtrados = productosDisponibles.filter(p => 
-                p.nombre.toLowerCase().includes(termino) || 
-                p.categoria.toLowerCase().includes(termino) ||
-                (p.codigoBarras && p.codigoBarras.includes(termino))
-            );
+            const filtrados = filtrarProductos(termino);
             renderTable("tablaProductos", true, filtrados);
         });
     }
-    setInterval(async () => { await refreshData(); }, 3600000);
+    setInterval(async () => { await refreshData(); }, 300000); // Actualizar cada 5 minutos
 }
 
 // 2. CATEGORÍAS Y DASHBOARD
@@ -77,9 +76,18 @@ async function cargarCategoriasDinamicas() {
         const selectRegistro = document.getElementById("prodCategoria");
         const optionsHtml = categorias.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join("");
         if (selectRegistro) selectRegistro.innerHTML = optionsHtml;
-        chartCat.data.labels = categorias.map(c => c.nombre);
-        chartCat.update();
-    } catch (e) { console.error("Error categorías:", e); }
+        if (chartCat) {
+            chartCat.data.labels = categorias.map(c => c.nombre);
+            chartCat.update();
+        }
+    } catch (e) { 
+        console.error("Error categorías:", e);
+        // Fallback: categorías básicas si falla la carga
+        const selectRegistro = document.getElementById("prodCategoria");
+        if (selectRegistro) {
+            selectRegistro.innerHTML = '<option value="Ropa">Ropa</option><option value="Accesorios">Accesorios</option><option value="Cuidado">Cuidado</option><option value="Juguetes">Juguetes</option>';
+        }
+    }
 }
 
 async function actualizarDashboard() {
@@ -131,12 +139,13 @@ function renderTable(containerId, isInventario, listaPersonalizada = null) {
     const container = document.getElementById(containerId);
     if (!container) return;
     const datosAMostrar = listaPersonalizada ? listaPersonalizada : productosDisponibles;
-    container.innerHTML = "";
+    
     if (datosAMostrar.length === 0) {
         container.innerHTML = `<tr><td colspan="4" class="text-center text-muted p-4">Sin resultados</td></tr>`;
         return;
     }
-    datosAMostrar.forEach(p => {
+    
+    const filasHtml = datosAMostrar.map(p => {
         const isLow = p.stock <= 5;
         const actionHtml = isInventario 
             ? `<button class="btn-action-round btn-add mx-auto" onclick="agregarAlCarrito(${p.id})"><i class="bi bi-cart-plus-fill"></i></button>`
@@ -145,11 +154,12 @@ function renderTable(containerId, isInventario, listaPersonalizada = null) {
                 <button class="btn-action-round btn-delete" onclick="eliminarProducto(${p.id})"><i class="bi bi-trash3-fill"></i></button>
                </div>`;
         
-        // MODIFICACIÓN 1: Seguro para el precio en la tabla
         const precioMostrado = (p.precio || p.precioCompra || 0).toFixed(2);
         
-        container.innerHTML += `<tr><td><div class="fw-bold text-dark">${p.nombre}</div><div class="small text-muted">${p.codigoBarras || 'S/C'}</div><span class="premium-cat-badge">${p.categoria}</span></td><td class="fw-bold">S/ ${precioMostrado}</td><td><span class="stock-badge ${isLow ? 'stock-low' : 'stock-high'}">${isLow ? '⚠️ ' : ''}${p.stock}</span></td><td class="text-center">${actionHtml}</td></tr>`;
+        return `<tr><td><div class="fw-bold text-dark">${p.nombre}</div><div class="small text-muted">${p.codigoBarras || 'S/C'}</div><span class="premium-cat-badge">${p.categoria}</span></td><td class="fw-bold">S/ ${precioMostrado}</td><td><span class="stock-badge ${isLow ? 'stock-low' : 'stock-high'}">${isLow ? '⚠️ ' : ''}${p.stock}</span></td><td class="text-center">${actionHtml}</td></tr>`;
     });
+    
+    container.innerHTML = filasHtml.join('');
 }
 
 async function cargarInventario() {
@@ -158,7 +168,12 @@ async function cargarInventario() {
         productosDisponibles = await res.json();
         renderTable("tablaProductos", true);
         renderTable("tablaGestion", false);
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error("Error cargando inventario:", e);
+        productosDisponibles = []; // Fallback vacío
+        renderTable("tablaProductos", true);
+        renderTable("tablaGestion", false);
+    }
 }
 
 // 4. CAJA Y VENTA
@@ -474,6 +489,11 @@ async function cargarHistorialDia() {
         const contenedor = document.getElementById("contenedorHistorialDia");
         if (!contenedor) return;
 
+        if (ventasHoy.length === 0) {
+            contenedor.innerHTML = '<div class="text-center text-muted p-4"><i class="bi bi-receipt fs-1"></i><br>No hay ventas registradas hoy</div>';
+            return;
+        }
+
         contenedor.innerHTML = ventasHoy.map(v => `
             <div class="card mb-2 border-0 shadow-sm p-3" style="border-left: 4px solid #d90166 !important; border-radius:15px;">
                 <div class="d-flex justify-content-between">
@@ -482,13 +502,17 @@ async function cargarHistorialDia() {
                         <div class="fw-bold text-dark">S/ ${v.total ? v.total.toFixed(2) : '0.00'}</div>
                     </div>
                     <div class="text-end">
-                        ${v.detalles.map(d => `<span class="premium-cat-badge ms-1">${d.cantidad} ${d.producto.nombre}</span>`).join("")}
+                        ${v.detalles?.map(d => `<span class="premium-cat-badge ms-1">${d.cantidad || 0} ${d.producto?.nombre || 'Producto'}</span>`).join("") || ''}
                     </div>
                 </div>
             </div>
         `).join("");
     } catch (e) {
         console.error("Error cargando historial:", e);
+        const contenedor = document.getElementById("contenedorHistorialDia");
+        if (contenedor) {
+            contenedor.innerHTML = '<div class="text-center text-danger p-4"><i class="bi bi-exclamation-triangle fs-1"></i><br>Error al cargar historial de ventas</div>';
+        }
     }
 }
 
