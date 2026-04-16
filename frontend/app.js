@@ -8,6 +8,7 @@ let carrito = [];
 let productosVendidosRecientes = [];
 let chartCat;
 let chartTen;
+let procesandoVenta = false;
 const META_VENTAS = 1000.00;
 
 // 1. INICIALIZACIÓN
@@ -163,10 +164,23 @@ async function cargarInventario() {
 // 4. CAJA Y VENTA
 function agregarAlCarrito(id) {
     const p = productosDisponibles.find(x => x.id === id);
-    if (!p || p.stock <= 0) return Swal.fire("Sin Stock", "", "error");
+    if (!p) {
+        return Swal.fire({ icon: 'error', title: 'Producto no encontrado', text: 'El producto no existe en el inventario' });
+    }
+    if (p.stock <= 0) {
+        return Swal.fire({ icon: 'warning', title: 'Sin Stock', text: p.nombre + ' no tiene stock disponible', timer: 2000, showConfirmButton: false });
+    }
     const enCarro = carrito.find(x => x.id === id);
-    if (enCarro) { if (enCarro.cantidad < p.stock) enCarro.cantidad++; } 
-    else { carrito.push({ ...p, cantidad: 1 }); }
+    if (enCarro) { 
+        if (enCarro.cantidad < p.stock) {
+            enCarro.cantidad++;
+        } else {
+            Swal.fire({ icon: 'info', title: 'Stock insuficiente', text: 'Solo hay ' + p.stock + ' unidades disponibles', timer: 2000, showConfirmButton: false });
+            return;
+        }
+    } else { 
+        carrito.push({ ...p, cantidad: 1 }); 
+    }
     renderCarrito();
 }
 
@@ -186,8 +200,24 @@ function quitar(i) { carrito.splice(i, 1); renderCarrito(); }
 
 // --- 1. FUNCIÓN DE VENTA MODIFICADA ---
 async function procesarVenta() {
-    if (carrito.length === 0) return;
+    if (procesandoVenta) return;
+    
+    if (carrito.length === 0) {
+        Swal.fire({ icon: 'warning', title: 'Carrito vacio', text: 'Agrega productos antes de finalizar la compra' });
+        return;
+    }
     const totalVenta = parseFloat(document.getElementById("totalVenta").innerText);
+    if (isNaN(totalVenta) || totalVenta <= 0) {
+        Swal.fire({ icon: 'error', title: 'Error en el total', text: 'El total de la venta no es valido' });
+        return;
+    }
+    
+    procesandoVenta = true;
+    const btnVenta = document.querySelector('button[onclick="procesarVenta()"]');
+    if (btnVenta) {
+        btnVenta.disabled = true;
+        btnVenta.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+    }
     
     const ventaData = { 
         total: totalVenta, 
@@ -210,15 +240,10 @@ async function procesarVenta() {
 
         if (res.ok) {
             productosVendidosRecientes = vendidoIds;
-            // PASO A: Abrimos la boleta primero
             abrirBoleta(carrito, totalVenta, data.id); 
-            
-            // PASO B: Limpiamos la interfaz de fondo
             carrito = []; 
             renderCarrito(); 
             await refreshData();
-            
-            // NO ponemos el Swal.fire aquí para que no se encime con la boleta
         } else {
             Swal.fire({ 
                 icon: 'warning', 
@@ -228,6 +253,12 @@ async function procesarVenta() {
         }
     } catch (e) { 
         Swal.fire("Error", "No se pudo conectar con el servidor", "error"); 
+    } finally {
+        procesandoVenta = false;
+        if (btnVenta) {
+            btnVenta.disabled = false;
+            btnVenta.innerHTML = 'FINALIZAR COMPRA';
+        }
     }
 }
 
@@ -353,29 +384,81 @@ function prepararEdicion(id) {
 
 document.getElementById("formProducto").addEventListener("submit", async (e) => {
     e.preventDefault();
+    
+    const nombre = document.getElementById("prodNombre").value.trim();
+    const categoria = document.getElementById("prodCategoria").value.trim();
+    const codigoBarras = document.getElementById("prodCodigoBarras").value.trim();
+    const precioStr = document.getElementById("prodPrecio").value.trim();
+    const stockStr = document.getElementById("prodStock").value.trim();
+    
+    if (!nombre) {
+        return Swal.fire({ icon: 'warning', title: 'Nombre requerido', text: 'Por favor ingresa el nombre del producto' });
+    }
+    if (!categoria) {
+        return Swal.fire({ icon: 'warning', title: 'Categoria requerida', text: 'Por favor selecciona una categoria' });
+    }
+    
+    const precio = parseFloat(precioStr);
+    if (isNaN(precio) || precio <= 0) {
+        return Swal.fire({ icon: 'warning', title: 'Precio invalido', text: 'El precio debe ser mayor a 0' });
+    }
+    
+    const stock = parseInt(stockStr);
+    if (isNaN(stock) || stock < 0) {
+        return Swal.fire({ icon: 'warning', title: 'Stock invalido', text: 'El stock no puede ser negativo' });
+    }
+    
     const prod = {
         id: document.getElementById("prodId").value || null,
-        nombre: document.getElementById("prodNombre").value,
-        categoria: document.getElementById("prodCategoria").value,
-        codigoBarras: document.getElementById("prodCodigoBarras").value,
-        precio: parseFloat(document.getElementById("prodPrecio").value),
-        stock: parseInt(document.getElementById("prodStock").value)
+        nombre: nombre,
+        categoria: categoria,
+        codigoBarras: codigoBarras || null,
+        precio: precio,
+        stock: stock
     };
-    const res = await fetch(`${API_URL}/productos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(prod) });
-    if (res.ok) {
-        document.getElementById("formProducto").reset();
-        document.getElementById("prodId").value = "";
-        document.getElementById("btnGuardar").innerHTML = "💾 Guardar Producto";
-        Swal.fire({ icon: 'success', title: 'Guardado', timer: 1000, showConfirmButton: false });
-        await refreshData();
+    
+    try {
+        const res = await fetch(`${API_URL}/productos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(prod) });
+        if (res.ok) {
+            document.getElementById("formProducto").reset();
+            document.getElementById("prodId").value = "";
+            document.getElementById("btnGuardar").innerHTML = "💾 Guardar Producto";
+            Swal.fire({ icon: 'success', title: 'Guardado', text: prod.id ? 'Producto actualizado' : 'Producto creado', timer: 1500, showConfirmButton: false });
+            await refreshData();
+        } else {
+            Swal.fire({ icon: 'error', title: 'Error al guardar', text: 'No se pudo guardar el producto' });
+        }
+    } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo conectar con el servidor' });
     }
 });
 
 async function eliminarProducto(id) {
-    if(confirm("¿Eliminar definitivamente?")) {
-        await fetch(`${API_URL}/productos/${id}`, { method: 'DELETE' });
-        await refreshData();
-    }
+    const producto = productosDisponibles.find(p => p.id === id);
+    Swal.fire({
+        icon: 'warning',
+        title: 'Eliminar producto',
+        html: `<strong>${producto?.nombre || 'Producto'}</strong><br><span class="text-muted small">Esta accion no se puede deshacer</span>`,
+        showCancelButton: true,
+        confirmButtonColor: '#d90166',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Si, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                const res = await fetch(`${API_URL}/productos/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    Swal.fire({ icon: 'success', title: 'Eliminado', text: 'El producto fue eliminado correctamente', timer: 1500, showConfirmButton: false });
+                    await refreshData();
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo eliminar el producto' });
+                }
+            } catch (e) {
+                Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo conectar con el servidor' });
+            }
+        }
+    });
 }
 
 async function cargarHistorialDia() {
